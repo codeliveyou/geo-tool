@@ -4,25 +4,24 @@ A Simple Proportional Navigation Simulation with Actuator Dynamics
 
 Setup:
   1. Click on the canvas:
-      - First click sets the rocket’s starting position (red circle)
-      - Second click sets the target’s starting position (blue circle)
+      - First click sets the rocket’s starting marker (red circle)
+      - Second click sets the target’s starting marker (blue circle)
   2. Enter the following parameters:
       - Rocket Speed (m/s) and Rocket Angle (deg)
       - Target Speed (m/s) and Target Angle (deg)
       - PN Navigation Constant (dimensionless)
       - Maximum allowed Vertical Acceleration (m/s²)
-      - Actuator Time Constant (sec) -- time required for the launcher to achieve the ideal PN command.
-  3. Enter the Scale: number of meters per pixel.
-  4. When "Start Simulation" is pressed:
-      - A dashed line is drawn between the rocket and target showing their initial separation.
-      - The target moves in a constant straight-line path while the rocket uses a PN law.
-      - The rocket’s vertical (lateral) acceleration is not applied instantly but follows a
-        first-order dynamic defined by the actuator time constant.
-      - The trajectories are drawn (rocket: red, target: blue) and the current and maximum
-        vertical acceleration values are displayed.
-      - Every 1 second a purple LOS line is drawn between the current positions of the rocket and target.
-      - When the rocket comes within 10 meters (or less than 2 m in this code) of the target, a collision is marked in green.
-  5. Press "Reset Simulation" to clear the canvas and start over.
+      - Actuator Time Constant (sec) – time required for the launcher to achieve the ideal PN command.
+  3. Enter the Scale (m/px).
+  4. When the target marker is set, the simulation automatically starts:
+      - A dashed gray line is drawn showing the initial separation.
+      - The target moves along a constant straight-line path while the rocket uses a PN law.
+      - The rocket’s vertical acceleration is applied with first-order dynamics.
+      - The trajectories are drawn (rocket: red, target: blue) and LOS lines (purple dashed, every 1 sec) are drawn.
+      - When the rocket comes within 2 m of the target, a collision is marked in green.
+      - After collision, the simulation automatically restarts (simulation drawings are cleared, but markers remain).
+  5. The "Stop Simulation" button halts the simulation.
+  6. The "Reset Simulation" button clears everything—including the rocket and target markers—so that you can set new ones.
   
 Note: The canvas is expanded.
 """
@@ -33,91 +32,106 @@ import math
 class SimulationApp:
     def __init__(self, master):
         self.master = master
-        master.title("Simple Proportional Navigation Simulation")
+        master.title("Proportional Navigation Guidance Simulation")
         self.canvas_width = 1200
         self.canvas_height = 800
         self.canvas = tk.Canvas(master, width=self.canvas_width, height=self.canvas_height, bg="white")
         self.canvas.grid(row=0, column=0, columnspan=4, padx=5, pady=5)
-        self.info_label = tk.Label(master, text="Click: first sets Rocket position, second sets Target position.")
+
+        self.info_label = tk.Label(master, text="Click: first sets Rocket marker, second sets Target marker.")
         self.info_label.grid(row=1, column=0, columnspan=4, sticky="w", padx=5)
+
         tk.Label(master, text="Rocket Speed (m/s):").grid(row=2, column=0, sticky=tk.E)
         self.rocket_speed_entry = tk.Entry(master, width=10)
         self.rocket_speed_entry.insert(0, "25")
         self.rocket_speed_entry.grid(row=2, column=1, sticky=tk.W)
+
         tk.Label(master, text="Rocket Angle (deg):").grid(row=2, column=2, sticky=tk.E)
         self.rocket_angle_entry = tk.Entry(master, width=10)
         self.rocket_angle_entry.insert(0, "270")
         self.rocket_angle_entry.grid(row=2, column=3, sticky=tk.W)
+
         tk.Label(master, text="Target Speed (m/s):").grid(row=3, column=0, sticky=tk.E)
         self.target_speed_entry = tk.Entry(master, width=10)
         self.target_speed_entry.insert(0, "15")
         self.target_speed_entry.grid(row=3, column=1, sticky=tk.W)
+
         tk.Label(master, text="Target Angle (deg):").grid(row=3, column=2, sticky=tk.E)
         self.target_angle_entry = tk.Entry(master, width=10)
         self.target_angle_entry.insert(0, "0")
         self.target_angle_entry.grid(row=3, column=3, sticky=tk.W)
+
         tk.Label(master, text="PN Navigation Constant:").grid(row=4, column=0, sticky=tk.E)
         self.pn_constant_entry = tk.Entry(master, width=10)
         self.pn_constant_entry.insert(0, "3.0")
         self.pn_constant_entry.grid(row=4, column=1, sticky=tk.W)
+
         tk.Label(master, text="Max Vertical Acc (m/s²):").grid(row=4, column=2, sticky=tk.E)
         self.max_allowed_acc_entry = tk.Entry(master, width=10)
         self.max_allowed_acc_entry.insert(0, "5")
         self.max_allowed_acc_entry.grid(row=4, column=3, sticky=tk.W)
+
         tk.Label(master, text="Actuator Time Constant (sec):").grid(row=5, column=0, sticky=tk.E)
         self.time_constant_entry = tk.Entry(master, width=10)
         self.time_constant_entry.insert(0, "2.0")
         self.time_constant_entry.grid(row=5, column=1, sticky=tk.W)
+
         tk.Label(master, text="Scale (m/px):").grid(row=6, column=0, sticky=tk.E)
         self.scale_entry = tk.Entry(master, width=10)
-        self.scale_entry.insert(0, "0.1")
+        self.scale_entry.insert(0, "0.5")
         self.scale_entry.grid(row=6, column=1, sticky=tk.W)
-        self.start_button = tk.Button(master, text="Start Simulation", command=self.start_simulation)
-        self.start_button.grid(row=7, column=0, columnspan=2, pady=5)
-        self.reset_button = tk.Button(master, text="Reset Simulation", command=self.reset_simulation)
+
+        self.stop_button = tk.Button(master, text="Stop Simulation", command=self.stop_simulation)
+        self.stop_button.grid(row=7, column=0, columnspan=2, pady=5)
+        self.reset_button = tk.Button(master, text="Reset Simulation", command=self.full_reset)
         self.reset_button.grid(row=7, column=2, columnspan=2, pady=5)
+
         self.curr_acc_label = tk.Label(master, text="Current Vertical Acc: 0.0 m/s²")
         self.curr_acc_label.grid(row=8, column=0, columnspan=2, sticky="w", padx=5)
         self.max_acc_label = tk.Label(master, text="Max Vertical Acc: 0.0 m/s²")
         self.max_acc_label.grid(row=8, column=2, columnspan=2, sticky="w", padx=5)
+
         self.canvas.bind("<Button-1>", self.on_canvas_click)
-        self.reset_simulation_variables()
+        self.reset_simulation_variables(full=True)
         self.dt = 0.02
 
-    def reset_simulation_variables(self):
-        self.rocket_set = False
-        self.target_set = False
-        self.rocket_start_px = None
-        self.target_start_px = None
+    def reset_simulation_variables(self, full=False):
+        if full:
+            self.canvas.delete("all")
+            self.rocket_set = False
+            self.target_set = False
+            self.rocket_start_px = None
+            self.target_start_px = None
         self.simulation_running = False
         self.simulation_time = 0.0
         self.rocket_traj = []
         self.target_traj = []
+        self.canvas.delete("sim")
         self.initial_distance_line = None
         self.initial_distance_text = None
         self.a_actual = 0.0
         self.next_los_time = 1.0
+
+        
 
     def on_canvas_click(self, event):
         if not self.rocket_set:
             self.rocket_start_px = (event.x, event.y)
             self.rocket_set = True
             r = 4
-            self.canvas.create_oval(event.x-r, event.y-r, event.x+r, event.y+r, fill="red")
-            self.info_label.config(text="Rocket position set. Click to set Target position.")
+            self.canvas.create_oval(event.x-r, event.y-r, event.x+r, event.y+r, fill="red", tags="marker")
+            self.info_label.config(text="Rocket marker set. Click to set Target marker.")
         elif not self.target_set:
             self.target_start_px = (event.x, event.y)
             self.target_set = True
             r = 4
-            self.canvas.create_oval(event.x-r, event.y-r, event.x+r, event.y+r, fill="blue")
-            self.info_label.config(text="Both positions set. Press 'Start Simulation' to begin.")
+            self.canvas.create_oval(event.x-r, event.y-r, event.x+r, event.y+r, fill="blue", tags="marker")
+            self.info_label.config(text="Target marker set. Starting simulation...")
+            self.start_simulation()
         else:
             pass
 
     def start_simulation(self):
-        if not (self.rocket_set and self.target_set):
-            self.info_label.config(text="Please click to set both Rocket and Target positions!")
-            return
         try:
             self.rocket_speed = float(self.rocket_speed_entry.get())
             self.rocket_angle = math.radians(float(self.rocket_angle_entry.get()))
@@ -128,8 +142,10 @@ class SimulationApp:
             self.actuator_time_constant = float(self.time_constant_entry.get())
             self.scale = float(self.scale_entry.get())
         except ValueError:
-            self.info_label.config(text="Invalid parameters! Please enter numeric values.")
+            self.info_label.config(text="Invalid parameters! Enter numeric values.")
             return
+
+        # Set simulation start positions from markers
         self.rocket_pos = [self.rocket_start_px[0] * self.scale, self.rocket_start_px[1] * self.scale]
         self.target_pos = [self.target_start_px[0] * self.scale, self.target_start_px[1] * self.scale]
         dx = self.target_pos[0] - self.rocket_pos[0]
@@ -138,14 +154,14 @@ class SimulationApp:
         self.initial_distance_line = self.canvas.create_line(
             self.rocket_pos[0] / self.scale, self.rocket_pos[1] / self.scale,
             self.target_pos[0] / self.scale, self.target_pos[1] / self.scale,
-            dash=(4,2), fill="gray"
+            dash=(4,2), fill="gray", tags="sim"
         )
         mid_x = (self.rocket_pos[0] + self.target_pos[0]) / (2 * self.scale)
         mid_y = (self.rocket_pos[1] + self.target_pos[1]) / (2 * self.scale)
         self.initial_distance_text = self.canvas.create_text(
             mid_x, mid_y-10,
             text=f"Initial Distance: {initial_distance:.1f} m",
-            fill="gray", font=("Arial", 10, "italic")
+            fill="gray", font=("Arial", 10, "italic"), tags="sim"
         )
         self.rocket_vel = [self.rocket_speed * math.cos(self.rocket_angle),
                            self.rocket_speed * math.sin(self.rocket_angle)]
@@ -159,7 +175,7 @@ class SimulationApp:
         self.simulation_running = True
         self.simulation_time = 0.0
         self.info_label.config(text="Simulation running...")
-        self.start_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
         self.update_simulation()
 
     def update_simulation(self):
@@ -206,43 +222,79 @@ class SimulationApp:
         self.rocket_traj.append((self.rocket_pos[0], self.rocket_pos[1]))
         self.target_traj.append((self.target_pos[0], self.target_pos[1]))
         if len(self.rocket_traj) >= 2:
-            self.canvas.create_line(self.rocket_traj[-2][0] / self.scale, self.rocket_traj[-2][1] / self.scale,
-                                    self.rocket_traj[-1][0] / self.scale, self.rocket_traj[-1][1] / self.scale,
-                                    fill="red")
+            self.canvas.create_line(
+                self.rocket_traj[-2][0] / self.scale, self.rocket_traj[-2][1] / self.scale,
+                self.rocket_traj[-1][0] / self.scale, self.rocket_traj[-1][1] / self.scale,
+                fill="red", tags="sim"
+            )
         if len(self.target_traj) >= 2:
-            self.canvas.create_line(self.target_traj[-2][0] / self.scale, self.target_traj[-2][1] / self.scale,
-                                    self.target_traj[-1][0] / self.scale, self.target_traj[-1][1] / self.scale,
-                                    fill="blue")
+            self.canvas.create_line(
+                self.target_traj[-2][0] / self.scale, self.target_traj[-2][1] / self.scale,
+                self.target_traj[-1][0] / self.scale, self.target_traj[-1][1] / self.scale,
+                fill="blue", tags="sim"
+            )
         if self.simulation_time >= self.next_los_time:
-            self.canvas.create_line(self.rocket_pos[0] / self.scale, self.rocket_pos[1] / self.scale,
-                                    self.target_pos[0] / self.scale, self.target_pos[1] / self.scale,
-                                    fill="purple", dash=(2,2))
+            self.canvas.create_line(
+                self.rocket_pos[0] / self.scale, self.rocket_pos[1] / self.scale,
+                self.target_pos[0] / self.scale, self.target_pos[1] / self.scale,
+                fill="purple", dash=(2,2), tags="sim"
+            )
             self.next_los_time += 1.0
         self.prev_LOS = current_LOS
-        if r < 2:
-            self.info_label.config(text="Impact! Rocket hit the target.")
+        if r <= 2:
+            self.info_label.config(text="Impact! Rocket hit the target. Restarting simulation...")
             self.simulation_running = False
-            r_collide = 6
-            self.canvas.create_oval((self.rocket_pos[0]-r_collide)/self.scale, (self.rocket_pos[1]-r_collide)/self.scale,
-                                    (self.rocket_pos[0]+r_collide)/self.scale, (self.rocket_pos[1]+r_collide)/self.scale,
-                                    fill="green")
-            self.start_button.config(state=tk.NORMAL)
+            r_collide = 2
+            self.canvas.create_oval(
+                (self.rocket_pos[0]-r_collide)/self.scale, (self.rocket_pos[1]-r_collide)/self.scale,
+                (self.rocket_pos[0]+r_collide)/self.scale, (self.rocket_pos[1]+r_collide)/self.scale,
+                fill="green", tags="sim"
+            )
+            self.stop_button.config(state=tk.DISABLED)
+            self.master.after(2000, self.restart_simulation)
             return
         if self.simulation_time > 30:
             self.info_label.config(text="Simulation time exceeded. Stopping simulation.")
             self.simulation_running = False
-            self.start_button.config(state=tk.NORMAL)
+            self.stop_button.config(state=tk.DISABLED)
             return
         self.master.after(int(dt*1000), self.update_simulation)
 
-    def reset_simulation(self):
+    def restart_simulation(self):
+        # Restart simulation using the same markers; reinitialize simulation state from marker positions.
+        self.canvas.delete("sim")
+
+        self.rocket_angle = math.radians(float(self.rocket_angle_entry.get()))
+
+        self.rocket_pos = [self.rocket_start_px[0] * self.scale, self.rocket_start_px[1] * self.scale]
+        self.target_pos = [self.target_start_px[0] * self.scale, self.target_start_px[1] * self.scale]
+        dx = self.target_pos[0] - self.rocket_pos[0]
+        dy = self.target_pos[1] - self.rocket_pos[1]
+        self.rocket_traj = [tuple(self.rocket_pos)]
+        self.target_traj = [tuple(self.target_pos)]
+        self.a_actual = 0.0
+        self.simulation_time = 0.0
+        self.next_los_time = 1.0
+        self.prev_LOS = math.atan2(dy, dx)
+        self.info_label.config(text="Simulation restarting...")
+        self.simulation_running = True
+        self.stop_button.config(state=tk.NORMAL)
+
+        self.update_simulation()
+
+    def stop_simulation(self):
         self.simulation_running = False
+        self.info_label.config(text="Simulation stopped by user.")
+        self.stop_button.config(state=tk.DISABLED)
+
+    def full_reset(self):
+        # Clear everything including markers.
         self.canvas.delete("all")
-        self.reset_simulation_variables()
-        self.info_label.config(text="Click: first sets Rocket position, second sets Target position.")
+        self.reset_simulation_variables(full=True)
+        self.info_label.config(text="Click: first sets Rocket marker, second sets Target marker.")
         self.curr_acc_label.config(text="Current Vertical Acc: 0.0 m/s²")
         self.max_acc_label.config(text="Max Vertical Acc: 0.0 m/s²")
-        self.start_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.NORMAL)
 
 if __name__ == "__main__":
     root = tk.Tk()
