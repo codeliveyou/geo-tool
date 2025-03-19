@@ -76,7 +76,6 @@ else:
     print("Path found:", path)
 
 
-
 # Visualize on the image:
 color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 for point in path:
