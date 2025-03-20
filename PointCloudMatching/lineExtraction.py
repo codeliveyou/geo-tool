@@ -24,7 +24,7 @@ def extract_segments_ransac(points, min_samples=20, residual_threshold=0.5, max_
             intercept = ransac.estimator_.intercept_
             # y = slope * x + intercept
             x0 = 1 / math.sqrt(1 + slope * slope)
-            lines.append([point(0., intercept), point(x0, slope * x0 + intercept)])
+            lines.append([point(0., intercept), point(x0, (slope * x0 + intercept))])
         remaining_points = remaining_points[~inlier_mask]
         print("Extracted Lines = ", len(lines), '\n')
     print("Time =", time.time() - t)
@@ -43,13 +43,14 @@ def plot_points_and_segments(points, segments):
     plt.scatter([p.x for p in points], [p.y for p in points], color='blue', s=10, label='Points')
     
     for p1, p2 in segments:
-        plt.plot([p1.x, p2.x], [p1.y, p2.y], color='red', linewidth=2, label=f'Segment: ({p1.x:.2f}, {p1.y:.2f}) to ({p2.x:.2f}, {p2.y:.2f})')
+        p3 = p1 + (p2 - p1) * 600.
+        plt.plot([p1.x, p3.x], [p1.y, p3.y], color='red', linewidth=1, label=f'Segment: ({p1.x:.2f}, {p1.y:.2f}) to ({p2.x:.2f}, {p2.y:.2f})')
     
     plt.title('Extracted Line Segments from Point Cloud')
     plt.xlabel('X')
     plt.ylabel('Y')
-    # plt.xlim(-10, 15)
-    # plt.ylim(-10, 15)
+    plt.xlim(0, 500)
+    plt.ylim(0, 500)
     plt.legend()
     plt.grid(True)
     plt.show()

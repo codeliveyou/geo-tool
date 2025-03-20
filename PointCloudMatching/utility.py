@@ -11,12 +11,14 @@ class point:
         return point(self.x - a.x, self.y - a.y)
     
     def __mul__(self, a):
-        return point(self.x * a, self.y * a)    
+        if isinstance(a, point):
+            return self.x * a.x + self.y * a.y
+        else:
+            return point(self.x * a, self.y * a)
+        
     def __div__(self, a):
         return point(self.x / a, self.y / a)
     
-    def __mul__(self, a):
-        return self.x * a.x + self.y * a.y
     def __xor__(self, a):
         return self.x * a.y - self.y * a.x
     
@@ -28,15 +30,3 @@ class point:
 
     def __str__(self):
         return f"Point({self.x}, {self.y})"
-
-def read_scan_points(file):
-    fp = open(file, 'r')
-    points = []
-    for data in fp:
-        data = data.replace('\n', '')
-        data = data.split(' ')
-        x = float(data[0])
-        y = float(data[1])
-        points.append([x, y])
-    fp.close()
-    return points
