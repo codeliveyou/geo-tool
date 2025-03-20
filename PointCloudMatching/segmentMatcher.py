@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial.transform import Rotation as R
+import math
 
 def closest_segment(source_segment, target_segments):
     min_distance = float('inf')
@@ -13,7 +13,7 @@ def closest_segment(source_segment, target_segments):
     return closest, min_distance
 
 def segment_distance(seg1, seg2):
-    return np.linalg.norm(seg1[0] - seg2[0]) + np.linalg.norm(seg1[1] - seg2[1])
+    return np.linalg.norm(np.array(seg1[0]) - np.array(seg2[0])) + np.linalg.norm(np.array(seg1[1]) - np.array(seg2[1]))
 
 def icp(source_segments, target_segments, max_iterations=100, tolerance=1e-5):
     source_segments = np.array(source_segments)
@@ -26,11 +26,7 @@ def icp(source_segments, target_segments, max_iterations=100, tolerance=1e-5):
         matched_segments = []
         for source_segment in source_segments:
             closest, distance = closest_segment(source_segment, target_segments)
-            if distance < tolerance:
-                matched_segments.append((source_segment, closest))
-        
-        if not matched_segments:
-            break
+            matched_segments.append((source_segment, closest))
         
         src_points = np.array([seg[0] for seg, _ in matched_segments] + [seg[1] for seg, _ in matched_segments])
         tgt_points = np.array([seg[0] for _, seg in matched_segments] + [seg[1] for _, seg in matched_segments])
@@ -53,17 +49,19 @@ def icp(source_segments, target_segments, max_iterations=100, tolerance=1e-5):
         
         t_opt = tgt_centroid - np.dot(R_opt, src_centroid)
         
-        for i in range(len(source_segments)):
-            source_segments[i] = (np.dot(R_opt, source_segments[i][0]) + t_opt, 
-                                  np.dot(R_opt, source_segments[i][1]) + t_opt)
+        transformed_segments = []
+        for seg in source_segments:
+            transformed_seg = (np.dot(R_opt, seg[0]) + t_opt, np.dot(R_opt, seg[1]) + t_opt)
+            transformed_segments.append(transformed_seg)
         
         if np.linalg.norm(t_opt) < tolerance and np.linalg.norm(R_opt - rotation) < tolerance:
             break
         
         rotation = R_opt
         translation = t_opt
+        source_segments = np.array(transformed_segments)
     
-    return rotation, translation, source_segments
+    return rotation, translation, transformed_segments
 
 def plot_segments(source_segments, target_segments, transformed_segments):
     plt.figure(figsize=(10, 6))
@@ -85,15 +83,14 @@ def plot_segments(source_segments, target_segments, transformed_segments):
     plt.show()
 
 def main():
-    source_segments = [((0, 0), (1, 1)), ((1, 0), (2, 1)), ((2, 0), (3, 1))]
-    target_segments = [((1, 1), (2, 2)), ((2, 1), (3, 2)), ((3, 1), (4, 2))]
+    source_segments = [((1, 0), (0, 2)), ((0, 2), (1.5, 2))]
+    target_segments = [((1, 1), (3, 2)), ((3, 2), (3, 1))]
     
     rotation, translation, transformed_segments = icp(source_segments, target_segments)
     
     print("Optimal Rotation:\n", rotation)
     print("Optimal Translation:\n", translation)
     
-    # Plot the segments
     plot_segments(source_segments, target_segments, transformed_segments)
 
 if __name__ == "__main__":

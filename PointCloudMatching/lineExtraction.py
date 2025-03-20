@@ -5,7 +5,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 import time, math
 
-from utility import point, read_scan_points
+from utility import point
 
 def extract_segments_ransac(points, min_samples=20, residual_threshold=0.5, max_trials=200):
     lines = []
@@ -53,6 +53,18 @@ def plot_points_and_segments(points, segments):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+def read_scan_points(file):
+    fp = open(file, 'r')
+    points = []
+    for data in fp:
+        data = data.replace('\n', '')
+        data = data.split(' ')
+        x = float(data[0])
+        y = float(data[1])
+        points.append([x, y])
+    fp.close()
+    return points
 
 def main():
     scan_points1 = read_scan_points('./L&M/2x_range/lidar-0000.txt')
