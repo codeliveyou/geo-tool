@@ -18,7 +18,7 @@ def extract_segments_ransac(points, min_samples=20, residual_threshold=0.5, max_
         ransac = RANSACRegressor(residual_threshold=residual_threshold, max_trials=max_trials)
         ransac.fit(remaining_points[:, 0].reshape(-1, 1), remaining_points[:, 1])
         inlier_mask = ransac.inlier_mask_
-        inliers = remaining_points[inlier_mask]
+        inliers = remaining_points[inlier_mask] 
         if len(inliers) > min_samples:
             slope = ransac.estimator_.coef_[0]
             intercept = ransac.estimator_.intercept_
@@ -41,11 +41,11 @@ def extract_segments_ransac(points, min_samples=20, residual_threshold=0.5, max_
 def plot_points_and_segments(points, segments):
     plt.figure(figsize=(10, 6))
     plt.scatter([p.x for p in points], [p.y for p in points], color='blue', s=10, label='Points')
-    
+
     for p1, p2 in segments:
         p3 = p1 + (p2 - p1) * 600.
         plt.plot([p1.x, p3.x], [p1.y, p3.y], color='red', linewidth=1, label=f'Segment: ({p1.x:.2f}, {p1.y:.2f}) to ({p2.x:.2f}, {p2.y:.2f})')
-    
+
     plt.title('Extracted Line Segments from Point Cloud')
     plt.xlabel('X')
     plt.ylabel('Y')
