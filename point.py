@@ -11,12 +11,13 @@ class point:
         return point(self.x - a.x, self.y - a.y)
     
     def __mul__(self, a):
-        return point(self.x * a, self.y * a)    
-    def __div__(self, a):
+        if isinstance(a, point):
+            return self.x * a.x + self.y * a.y
+        return point(self.x * a, self.y * a)
+    
+    def __truediv__(self, a):
         return point(self.x / a, self.y / a)
     
-    def __mul__(self, a):
-        return self.x * a.x + self.y * a.y
     def __xor__(self, a):
         return self.x * a.y - self.y * a.x
     
@@ -24,6 +25,8 @@ class point:
         return math.sqrt(self.x * self.x + self.y * self.y)
     
     def unit(self):
+        if self.length() < 1e-9:
+            return self
         return self / self.length()
 
     def __str__(self):
